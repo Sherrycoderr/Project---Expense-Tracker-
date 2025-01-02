@@ -1,0 +1,114 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from db_helper import initialize_db, add_expense, delete_expense, fetch_expenses, calculate_total_expense, reset_expenses
+
+def load_expenses():
+    """Load expenses from the database into the Treeview."""
+    expense_list.delete(*expense_list.get_children())
+    for expense in fetch_expenses():
+        expense_list.insert("", "end", iid=expense[0], values=(expense[1], f"${expense[2]:.2f}", expense[3]))
+
+def add_expense_handler():
+    """Handle adding an expense."""
+    name, price, category = name_entry.get().strip(), price_entry.get().strip(), category_entry.get().strip()
+    if not name or not price or not category:
+        messagebox.showwarning("Input Error", "Please fill all fields!")
+        return
+    try:
+        add_expense(name, float(price), category)
+        load_expenses()
+        clear_inputs()
+    except ValueError:
+        messagebox.showerror("Input Error", "Price must be a valid number!")
+    except Exception as e:
+        messagebox.showerror("Error", f"Error adding expense: {e}")
+
+def delete_expense_handler():
+    """Handle deleting the selected expense."""
+    selected_item = expense_list.selection()
+    if not selected_item:
+        messagebox.showwarning("Selection Error", "Please select an expense to delete!")
+        return
+    try:
+        delete_expense(int(selected_item[0]))
+        load_expenses()
+    except Exception as e:
+        messagebox.showerror("Error", f"Error deleting expense: {e}")
+
+def show_total_expense():
+    """Display the total expense."""
+    try:
+        total = calculate_total_expense()
+        messagebox.showinfo("Total Expense", f"Your total expense is: ${total:.2f}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Error calculating total expense: {e}")
+
+def reset_expenses_handler():
+    """Reset all expenses in the database."""
+    if messagebox.askyesno("Reset Expenses", "Are you sure you want to reset all expenses?"):
+        try:
+            reset_expenses()
+            load_expenses()
+            messagebox.showinfo("Reset Successful", "All expenses have been reset.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error resetting expenses: {e}")
+
+def clear_inputs():
+    """Clear input fields."""
+    name_entry.delete(0, tk.END)
+    price_entry.delete(0, tk.END)
+    category_entry.delete(0, tk.END)
+
+# Initialize database
+initialize_db()
+
+# Setup main application window
+root = tk.Tk()
+root.title("Expense Tracker")
+root.geometry("600x400")
+root.configure(bg="black")
+
+# Input frame
+input_frame = tk.Frame(root, bg="black")
+input_frame.pack(pady=10)
+
+def create_label_entry(frame, label_text, row):
+    tk.Label(frame, text=label_text, bg="black", fg="white").grid(row=row, column=0, padx=5, pady=5)
+    entry = tk.Entry(frame, fg="black", bd=0, insertbackground="black")
+    entry.grid(row=row, column=1, padx=5, pady=5)
+    return entry
+
+name_entry = create_label_entry(input_frame, "Name:", 0)
+price_entry = create_label_entry(input_frame, "Price:", 1)
+category_entry = create_label_entry(input_frame, "Category:", 2)
+
+# Button frame
+button_frame = tk.Frame(root, bg="black")
+button_frame.pack(pady=10)
+
+def create_button(frame, text, command, bg_color, column):
+    tk.Button(frame, text=text, command=command, bg=bg_color, fg="white", relief="flat").grid(row=0, column=column, padx=10)
+
+create_button(button_frame, "Add Expense", add_expense_handler, "green", 0)
+create_button(button_frame, "Delete Expense", delete_expense_handler, "red", 1)
+create_button(button_frame, "Check Total Expense", show_total_expense, "blue", 2)
+create_button(button_frame, "Reset Expenses", reset_expenses_handler, "orange", 3)
+
+# Expense list (Treeview)
+expense_list = ttk.Treeview(root, columns=("Name", "Price", "Category"), show="headings", height=10)
+expense_list.pack(pady=10)
+
+for col in ["Name", "Price", "Category"]:
+    expense_list.heading(col, text=col, anchor="center")
+    expense_list.column(col, anchor="center", width=150 if col != "Price" else 100)
+
+# Treeview style
+style = ttk.Style()
+style.configure("Treeview", background="black", foreground="white", fieldbackground="black")
+style.configure("Treeview.Heading", background="darkgray", foreground="black")
+
+# Load initial expenses
+load_expenses()
+
+# Run the application
+root.mainloop()
